@@ -103,11 +103,19 @@
                                     <outlet property="delegate" destination="xxb-W9-1YJ" id="kbC-gt-7Cb"/>
                                 </connections>
                             </collectionView>
+                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="No images found for this location" textAlignment="natural" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="Wxf-Ei-sNm">
+                                <rect key="frame" x="66.666666666666657" y="436.66666666666669" width="280.66666666666674" height="23"/>
+                                <fontDescription key="fontDescription" type="system" pointSize="19"/>
+                                <nil key="textColor"/>
+                                <nil key="highlightedColor"/>
+                            </label>
                         </subviews>
                         <color key="backgroundColor" white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
                         <constraints>
+                            <constraint firstItem="Wxf-Ei-sNm" firstAttribute="centerX" secondItem="IKa-NL-PZm" secondAttribute="centerX" id="KSi-sJ-5ud"/>
                             <constraint firstItem="UZl-rt-vkK" firstAttribute="trailing" secondItem="V3h-FD-JEt" secondAttribute="trailing" id="M6k-uy-ZV9"/>
                             <constraint firstItem="ezJ-Q3-aEy" firstAttribute="top" secondItem="V3h-FD-JEt" secondAttribute="bottom" id="O2b-Q0-brT"/>
+                            <constraint firstItem="Wxf-Ei-sNm" firstAttribute="centerY" secondItem="IKa-NL-PZm" secondAttribute="centerY" id="OQX-ax-z3p"/>
                             <constraint firstItem="V3h-FD-JEt" firstAttribute="leading" secondItem="UZl-rt-vkK" secondAttribute="leading" id="SjL-IQ-AZj"/>
                             <constraint firstItem="UZl-rt-vkK" firstAttribute="trailing" secondItem="Zea-Iu-hnb" secondAttribute="trailing" id="VhN-bG-nDv"/>
                             <constraint firstItem="Zea-Iu-hnb" firstAttribute="height" secondItem="IKa-NL-PZm" secondAttribute="height" multiplier="0.25" id="ZV0-bx-9pJ"/>
@@ -123,6 +131,7 @@
                     <connections>
                         <outlet property="collectionView" destination="V3h-FD-JEt" id="6UD-L8-ii5"/>
                         <outlet property="mapView" destination="Zea-Iu-hnb" id="k7G-LI-kFu"/>
+                        <outlet property="noImagesLabel" destination="Wxf-Ei-sNm" id="3Rn-6c-cad"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="I1I-s0-bW7" userLabel="First Responder" sceneMemberID="firstResponder"/>

@@ -30,7 +30,7 @@ class FlickrApiClient {
     
     class func getLocationPicsList(latitude: Double, longitude: Double, completion: @escaping ([URL]?, Error?) -> Void) {
         let page = Int.random(in: 1...250)
-        let url = URL(string: searchStr + "lat=\(latitude)&lon=\(longitude)&page=\(page)&per_page=13")!
+        let url = URL(string: searchStr + "lat=\(latitude)&lon=\(longitude)&page=\(page)")!
         NetworkingTasks.taskForRequest(requestMethod: "GET", url: url, responseType: PhotoSearchResponse.self) { (result, error) in
             guard error == nil else {
                 completion(nil, error)
@@ -39,7 +39,7 @@ class FlickrApiClient {
             if let result = result {
                 var imageUrls: [URL] = []
                 for photo in result.photos.photo {
-                    let imageStrTmp = "https://farm\(photo.farm).staticflickr.com/\(photo.server)/\(photo.id)_\(photo.secret)_s.jpg"
+                    let imageStrTmp = "https://farm\(photo.farm).staticflickr.com/\(photo.server)/\(photo.id)_\(photo.secret)_q.jpg"
                     imageUrls.append(URL(string: imageStrTmp)!)
                 }
                 DispatchQueue.main.async {
@@ -61,20 +61,20 @@ class FlickrApiClient {
         }
     }
     
-    class func downloadImage(url: URL, completion: @escaping (UIImage?, Error?) ->Void) {
+    class func downloadImage(url: URL, completion: @escaping (UIImage?, Data?, Error?) ->Void) {
         let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
             guard let data = data else {
-                completion(nil, error)
+                completion(nil, nil, error)
                 return
             }
             guard let image = UIImage(data: data) else {
                 DispatchQueue.main.async {
-                    completion(nil, MyError.dataConvertError)
+                    completion(nil, nil, MyError.dataConvertError)
                 }
                 return
             }
             DispatchQueue.main.async {
-                completion(image, nil)
+                completion(image, data, nil)
             }
         }
         task.resume()

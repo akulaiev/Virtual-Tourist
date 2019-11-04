@@ -7,6 +7,8 @@
         <attribute name="longitudeDelta" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
     </entity>
     <entity name="Photo" representedClassName="Photo" syncable="YES" codeGenerationType="class">
+        <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
         <attribute name="photoImg" optional="YES" attributeType="Binary" allowsExternalBinaryDataStorage="YES" syncable="YES"/>
         <relationship name="pin" optional="YES" maxCount="1" deletionRule="Nullify" destinationEntity="Pin" inverseName="photos" inverseEntity="Pin" syncable="YES"/>
     </entity>
@@ -17,7 +19,7 @@
     </entity>
     <elements>
         <element name="Map" positionX="-1467" positionY="630" width="128" height="105"/>
-        <element name="Photo" positionX="-1397.328125" positionY="581.59375" width="128" height="75"/>
+        <element name="Photo" positionX="-1397.328125" positionY="581.59375" width="128" height="105"/>
         <element name="Pin" positionX="-1569.05078125" positionY="579.8046875" width="128" height="90"/>
     </elements>
 </model>

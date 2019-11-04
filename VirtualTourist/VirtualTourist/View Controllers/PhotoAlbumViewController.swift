@@ -8,14 +8,18 @@
 
 import UIKit
 import MapKit
+import CoreData
 
 class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, MKMapViewDelegate {
     
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var collectionView: UICollectionView!
+    @IBOutlet weak var noImagesLabel: UILabel!
+    
     var dataController: DataController!
     var currentPin: CLLocationCoordinate2D!
     var imageUrls: [URL] = []
+    var fetchedImagesController: NSFetchedResultsController<Photo>!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -23,8 +27,6 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
         collectionView.delegate = self
         collectionView.dataSource = self
         collectionView.register(UINib.init(nibName: "CustomCollectionViewCell", bundle: nil), forCellWithReuseIdentifier: "photoCell")
-//        imageUrls = FlickrApiClient.getImageUrls(latitude: currentPin.latitude, longitude: currentPin.longitude)
-//        print(imageUrls)
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -33,33 +35,63 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
             let mapRegion = MKCoordinateRegion(center: currentPin, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
             mapView.setRegion(mapRegion, animated: true)
             MyPointAnnotation.putPin(location: currentPin, mapView: mapView)
+            noImagesLabel.isHidden = true
         }
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         return MyPointAnnotation.viewForAnnotation(annotation: annotation)
     }
+
+    func numberOfSections(in collectionView: UICollectionView) -> Int {
+        if let fetchedRes = fetchedImagesController, let sections = fetchedRes.sections {
+            return sections.count
+        }
+        return 1
+    }
     
     // Returns number of collection cells
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        return imageUrls.count
+        if let fetchedImagesController = fetchedImagesController, let sections = fetchedImagesController.sections, sections.count > 0, sections[section].numberOfObjects > 0 {
+            return sections[section].numberOfObjects
+        }
+        else if imageUrls.count == 0 {
+            noImagesLabel.isHidden = false
+            return 0
+        }
+        else {
+            return imageUrls.count
+        }
+    }
+    
+    fileprivate func networkImagesDownload(_ cell: CustomCollectionViewCell, _ indexPath: IndexPath) {
+        cell.photoImageView.layer.borderWidth = 1.5
+        cell.photoImageView.layer.borderColor = UIColor.lightGray.cgColor
+        cell.indicatorView.startAnimating()
+        FlickrApiClient.downloadImage(url: imageUrls[indexPath.row]) { (image, data, error) in
+            guard let image = image else {
+                print(error!.localizedDescription)
+                return
+            }
+            cell.indicatorView.stopAnimating()
+            cell.photoImageView.layer.borderWidth = 0
+            cell.photoImageView.image = image
+            let coreImage = Photo(context: self.dataController.viewContext)
+            coreImage.latitude = self.currentPin.latitude
+            coreImage.longitude = self.currentPin.longitude
+            coreImage.photoImg = data!
+            self.dataController.saveContext()
+        }
     }
     
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCell", for: indexPath) as! CustomCollectionViewCell
-        cell.photoImageView.layer.borderWidth = 1.5
-        cell.photoImageView.layer.borderColor = UIColor.lightGray.cgColor
-        cell.indicatorView.startAnimating()
         if imageUrls.count > 0 {
-            FlickrApiClient.downloadImage(url: imageUrls[indexPath.row]) { (image, error) in
-                guard let image = image else {
-                    print(error!.localizedDescription)
-                    return
-                }
-                cell.indicatorView.stopAnimating()
-                cell.photoImageView.layer.borderWidth = 0
-                cell.photoImageView.image = image
-            }
+            networkImagesDownload(cell, indexPath)
+        }
+        else if let sections = fetchedImagesController.sections, sections.count > 0, sections[indexPath.section].numberOfObjects > 0 {
+            let pic = fetchedImagesController.object(at: indexPath)
+            cell.photoImageView.image = UIImage(data: pic.photoImg!)!
         }
         return cell
     }
@@ -86,4 +118,34 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
 //        showMemeVC.memeImage = meme.memedImage
 //        navigationController?.pushViewController(showMemeVC, animated: true)
 //    }
+}
+
+extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
+    
+    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
+        switch type {
+        case .insert:
+            collectionView.insertItems(at: [newIndexPath!])
+            break
+        case .delete:
+            collectionView.deleteItems(at: [indexPath!])
+            break
+        case .update:
+            collectionView.reloadItems(at: [indexPath!])
+        case .move:
+            collectionView.moveItem(at: indexPath!, to: newIndexPath!)
+        @unknown default:
+            fatalError("Unknow switch value")
+        }
+    }
+    
+//    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+//        collectionView.reloadData()
+////        tableView.beginUpdates()
+//    }
+
+    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
+        collectionView.reloadData()
+//        tableView.endUpdates()
+    }
 }

@@ -10,11 +10,13 @@ import UIKit
 import MapKit
 import CoreData
 
-class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIGestureRecognizerDelegate {
+class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIGestureRecognizerDelegate, NSFetchedResultsControllerDelegate {
 
     @IBOutlet weak var mapView: MKMapView!
+    
     var dataController: DataController!
     var pins: [Pin] = []
+    var fetchedImagesController: NSFetchedResultsController<Photo>!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -35,7 +37,24 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         }
     }
     
-    private func fetchRecordsForEntity(_ entity: String, inManagedObjectContext managedObjectContext: NSManagedObjectContext) -> [NSManagedObject] {
+    func setupFetchedResultsController(latitude: Double, longitude: Double) {
+        let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
+        let predicate = NSPredicate(format: "latitude = %@", latitude)
+//        let predicate = NSPredicate(format: "latitude == %@", "longitude == %@", latitude, longitude)
+        fetchRequest.predicate = predicate
+        let sortDescriptor = NSSortDescriptor(key: "latitude", ascending: true)
+        fetchRequest.sortDescriptors = [sortDescriptor]
+        fetchedImagesController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: dataController.viewContext, sectionNameKeyPath: nil, cacheName: "lat: \(latitude) lon: \(longitude)")
+        fetchedImagesController.delegate = self
+        do {
+            try fetchedImagesController.performFetch()
+        }
+        catch {
+            fatalError("The fetch could not be performed: \(error.localizedDescription)")
+        }
+    }
+    
+    func fetchRecordsForEntity(_ entity: String, inManagedObjectContext managedObjectContext: NSManagedObjectContext) -> [NSManagedObject] {
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
         var result = [NSManagedObject]()
         do {
@@ -64,21 +83,12 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         }
     }
     
-    fileprivate func saveContext() {
-        do {
-            try dataController.viewContext.save()
-        }
-        catch {
-            print(error.localizedDescription)
-        }
-    }
-    
     func addAnnotation(location: CLLocationCoordinate2D) {
         MyPointAnnotation.putPin(location: location, mapView: mapView)
         let newPin = Pin(context: dataController.viewContext)
         newPin.latitude = location.latitude
         newPin.longitude = location.longitude
-        saveContext()
+        dataController.saveContext()
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
@@ -95,14 +105,22 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
             currentCenter = Map(context: dataController.viewContext)
         }
         currentCenter.setValuesForKeys(["longitudeDelta" : mapView.region.span.longitudeDelta, "latitudeDelta" : mapView.region.span.latitudeDelta, "centerLatitude" : mapView.region.center.latitude, "centerLongitude" : mapView.region.center.longitude])
-        saveContext()
+        dataController.saveContext()
     }
     
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
         let myAnnotation = view.annotation as! MyPointAnnotation
+        let latitude = myAnnotation.coordinate.latitude
+        let longitude = myAnnotation.coordinate.longitude
         photoAlbumVC.currentPin = myAnnotation.coordinate
-        FlickrApiClient.getImageUrls(latitude: myAnnotation.coordinate.latitude, longitude: myAnnotation.coordinate.longitude) {(result, error) in
+        setupFetchedResultsController(latitude: latitude, longitude: longitude)
+        if let sections = fetchedImagesController.sections, sections.count > 0, sections[0].numberOfObjects > 0 {
+            photoAlbumVC.fetchedImagesController = fetchedImagesController
+            self.navigationController!.pushViewController(photoAlbumVC, animated: true)
+        }
+        else {
+            FlickrApiClient.getImageUrls(latitude: latitude, longitude: longitude) {(result, error) in
                 guard let urls = result else {
                     print(error!.localizedDescription)
                     return
@@ -111,5 +129,6 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
                 photoAlbumVC.dataController = self.dataController
                 self.navigationController!.pushViewController(photoAlbumVC, animated: true)
             }
+        }
     }
 }
