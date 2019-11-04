@@ -27,14 +27,12 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         pins = fetchRecordsForEntity("Pin", inManagedObjectContext: dataController.viewContext) as! [Pin]
-        let mapCenters = fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext) as! [Map]
-        if mapCenters.count == 1 {
-            let mapCenter = mapCenters[0]
-            let span = MKCoordinateSpan(latitudeDelta: mapCenter.latitudeDelta, longitudeDelta: mapCenter.longitudeDelta)
-            let newRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: mapCenter.centerLatitude, longitude: mapCenter.centerLatitude), span: span)
-            mapView.region = newRegion
-        }
         placeSavedPins()
+        let currentCenterArr = fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext)
+        if (currentCenterArr.count > 0) {
+            let currentCenter = currentCenterArr[0] as! Map
+            mapView.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentCenter.centerLatitude, longitude: currentCenter.centerLongitude), span: MKCoordinateSpan(latitudeDelta: currentCenter.latitudeDelta, longitudeDelta: currentCenter.longitudeDelta))
+        }
     }
     
     private func fetchRecordsForEntity(_ entity: String, inManagedObjectContext managedObjectContext: NSManagedObjectContext) -> [NSManagedObject] {
@@ -54,7 +52,7 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     
     func placeSavedPins() {
         for pin in pins {
-            putPin(location: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude))
+            MyPointAnnotation.putPin(location: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude), mapView: mapView)
         }
     }
     
@@ -64,11 +62,6 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
             let locationOnMap = mapView.convert(locationInView, toCoordinateFrom: mapView)
             addAnnotation(location: locationOnMap)
         }
-    }
-
-    func putPin(location: CLLocationCoordinate2D) {
-        let annotation = MyPointAnnotation(coordinate: location, color: .red)
-        mapView.addAnnotation(annotation)
     }
     
     fileprivate func saveContext() {
@@ -81,7 +74,7 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     }
     
     func addAnnotation(location: CLLocationCoordinate2D) {
-        putPin(location: location)
+        MyPointAnnotation.putPin(location: location, mapView: mapView)
         let newPin = Pin(context: dataController.viewContext)
         newPin.latitude = location.latitude
         newPin.longitude = location.longitude
@@ -89,37 +82,34 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     }
     
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        if let annotation = annotation as? MyPointAnnotation
-        {
-            let view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "")
-            view.animatesDrop = true
-            view.pinTintColor = annotation.color
-            view.canShowCallout = false
-            return view
-        }
-        return nil
+        return MyPointAnnotation.viewForAnnotation(annotation: annotation)
     }
     
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        var mapCenters = fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext) as! [Map]
-        if mapCenters.count == 0 {
-            let mapCenter = Map(context: dataController.viewContext)
-            mapCenter.longitudeDelta = mapView.region.span.longitudeDelta
-            mapCenter.latitudeDelta = mapView.region.span.latitudeDelta
-            mapCenter.centerLatitude = mapView.region.center.latitude
-            mapCenter.centerLongitude = mapView.region.center.longitude
+        var centerArr = fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext) as! [Map]
+        var currentCenter: Map!
+        if centerArr.count > 0 {
+            currentCenter = centerArr[0]
         }
-        if mapCenters.count == 1 {
-            let mapCenter = mapCenters[0]
-            mapCenter.longitudeDelta = mapView.region.span.longitudeDelta
-            mapCenter.latitudeDelta = mapView.region.span.latitudeDelta
-            mapCenter.centerLatitude = mapView.region.center.latitude
-            mapCenter.centerLongitude = mapView.region.center.longitude
+        else {
+            currentCenter = Map(context: dataController.viewContext)
         }
+        currentCenter.setValuesForKeys(["longitudeDelta" : mapView.region.span.longitudeDelta, "latitudeDelta" : mapView.region.span.latitudeDelta, "centerLatitude" : mapView.region.center.latitude, "centerLongitude" : mapView.region.center.longitude])
         saveContext()
     }
     
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-        print("here")
+        let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
+        let myAnnotation = view.annotation as! MyPointAnnotation
+        photoAlbumVC.currentPin = myAnnotation.coordinate
+        FlickrApiClient.getImageUrls(latitude: myAnnotation.coordinate.latitude, longitude: myAnnotation.coordinate.longitude) {(result, error) in
+                guard let urls = result else {
+                    print(error!.localizedDescription)
+                    return
+                }
+                photoAlbumVC.imageUrls = urls
+                photoAlbumVC.dataController = self.dataController
+                self.navigationController!.pushViewController(photoAlbumVC, animated: true)
+            }
     }
 }

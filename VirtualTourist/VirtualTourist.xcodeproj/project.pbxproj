@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2DDF9A42236F3FC4008570CA /* NetworkingTasks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDF9A41236F3FC4008570CA /* NetworkingTasks.swift */; };
+		2DDF9A45236F4136008570CA /* FlickrApiClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDF9A44236F4136008570CA /* FlickrApiClient.swift */; };
+		2DDF9A49236F50D4008570CA /* PhotoSearchResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DDF9A48236F50D4008570CA /* PhotoSearchResponse.swift */; };
 		A0B95C20236C641B00FCFAE1 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0B95C1F236C641B00FCFAE1 /* AppDelegate.swift */; };
 		A0B95C25236C641B00FCFAE1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = A0B95C23236C641B00FCFAE1 /* Main.storyboard */; };
 		A0B95C27236C641B00FCFAE1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0B95C26236C641B00FCFAE1 /* Assets.xcassets */; };
@@ -21,6 +24,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2DDF9A41236F3FC4008570CA /* NetworkingTasks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkingTasks.swift; sourceTree = "<group>"; };
+		2DDF9A44236F4136008570CA /* FlickrApiClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlickrApiClient.swift; sourceTree = "<group>"; };
+		2DDF9A48236F50D4008570CA /* PhotoSearchResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoSearchResponse.swift; sourceTree = "<group>"; };
 		A0B95C1C236C641B00FCFAE1 /* VirtualTourist.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = VirtualTourist.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A0B95C1F236C641B00FCFAE1 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		A0B95C24236C641B00FCFAE1 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
@@ -47,6 +53,25 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2DDF9A40236F3FAF008570CA /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				A0B95C44236C760700FCFAE1 /* DataController.swift */,
+				A0B95C38236C6FB700FCFAE1 /* VirtualTourist.xcdatamodeld */,
+			);
+			path = Data;
+			sourceTree = "<group>";
+		};
+		2DDF9A43236F3FD1008570CA /* Network */ = {
+			isa = PBXGroup;
+			children = (
+				2DDF9A41236F3FC4008570CA /* NetworkingTasks.swift */,
+				2DDF9A44236F4136008570CA /* FlickrApiClient.swift */,
+				2DDF9A48236F50D4008570CA /* PhotoSearchResponse.swift */,
+			);
+			path = Network;
+			sourceTree = "<group>";
+		};
 		A0B95C13236C641B00FCFAE1 = {
 			isa = PBXGroup;
 			children = (
@@ -80,8 +105,8 @@
 		A0B95C31236C642300FCFAE1 /* Model */ = {
 			isa = PBXGroup;
 			children = (
-				A0B95C38236C6FB700FCFAE1 /* VirtualTourist.xcdatamodeld */,
-				A0B95C44236C760700FCFAE1 /* DataController.swift */,
+				2DDF9A43236F3FD1008570CA /* Network */,
+				2DDF9A40236F3FAF008570CA /* Data */,
 			);
 			path = Model;
 			sourceTree = "<group>";
@@ -186,12 +211,15 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2DDF9A49236F50D4008570CA /* PhotoSearchResponse.swift in Sources */,
 				A0B95C3A236C6FB700FCFAE1 /* VirtualTourist.xcdatamodeld in Sources */,
 				A0B95C45236C760700FCFAE1 /* DataController.swift in Sources */,
 				A0B95C47236CA61C00FCFAE1 /* MyPointAnnotation.swift in Sources */,
+				2DDF9A45236F4136008570CA /* FlickrApiClient.swift in Sources */,
 				A0B95C42236C736600FCFAE1 /* CustomCollectionViewCell.swift in Sources */,
 				A0B95C35236C64DC00FCFAE1 /* TravelLocationsMapViewController.swift in Sources */,
 				A0B95C20236C641B00FCFAE1 /* AppDelegate.swift in Sources */,
+				2DDF9A42236F3FC4008570CA /* NetworkingTasks.swift in Sources */,
 				A0B95C37236C64EC00FCFAE1 /* PhotoAlbumViewController.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

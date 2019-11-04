@@ -21,4 +21,21 @@ class MyPointAnnotation: NSObject, MKAnnotation
         self.color = color
         super.init()
     }
+    
+    class func putPin(location: CLLocationCoordinate2D, mapView: MKMapView) {
+        let annotation = MyPointAnnotation(coordinate: location, color: .red)
+        mapView.addAnnotation(annotation)
+    }
+    
+    class func viewForAnnotation(annotation: MKAnnotation) -> MKAnnotationView? {
+        if let annotation = annotation as? MyPointAnnotation
+        {
+            let view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "")
+            view.animatesDrop = true
+            view.pinTintColor = annotation.color
+            view.canShowCallout = false
+            return view
+        }
+        return nil
+    }
 }
