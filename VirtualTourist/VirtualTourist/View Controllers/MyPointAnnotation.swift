@@ -14,16 +14,18 @@ class MyPointAnnotation: NSObject, MKAnnotation
 {
     let coordinate: CLLocationCoordinate2D
     let color: UIColor
+    let pin: Pin
     
-    init(coordinate: CLLocationCoordinate2D, color: UIColor)
+    init(pin: Pin, color: UIColor)
     {
-        self.coordinate = coordinate
+        self.coordinate = CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude)
         self.color = color
+        self.pin = pin
         super.init()
     }
     
-    class func putPin(location: CLLocationCoordinate2D, mapView: MKMapView) {
-        let annotation = MyPointAnnotation(coordinate: location, color: .red)
+    class func putPin(mapView: MKMapView, pin: Pin) {
+        let annotation = MyPointAnnotation(pin: pin, color: .red)
         mapView.addAnnotation(annotation)
     }
     

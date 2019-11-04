@@ -37,20 +37,21 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         }
     }
     
-    func setupFetchedResultsController(latitude: Double, longitude: Double) {
+    func setupFetchedResultsController(pin: Pin) {
         let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
-        let predicate = NSPredicate(format: "latitude = %@", latitude)
-//        let predicate = NSPredicate(format: "latitude == %@", "longitude == %@", latitude, longitude)
+        let predicate = NSPredicate(format: "pin == %@", pin)
         fetchRequest.predicate = predicate
-        let sortDescriptor = NSSortDescriptor(key: "latitude", ascending: true)
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
         fetchRequest.sortDescriptors = [sortDescriptor]
-        fetchedImagesController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: dataController.viewContext, sectionNameKeyPath: nil, cacheName: "lat: \(latitude) lon: \(longitude)")
+        fetchedImagesController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: dataController.viewContext, sectionNameKeyPath: nil, cacheName: "lat: \(pin.latitude) lon: \(pin.longitude)")
         fetchedImagesController.delegate = self
-        do {
-            try fetchedImagesController.performFetch()
-        }
-        catch {
-            fatalError("The fetch could not be performed: \(error.localizedDescription)")
+        dataController!.backgroundContext.perform {
+            do {
+                try self.fetchedImagesController.performFetch()
+            }
+            catch {
+                fatalError("The fetch could not be performed: \(error.localizedDescription)")
+            }
         }
     }
     
@@ -71,7 +72,7 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     
     func placeSavedPins() {
         for pin in pins {
-            MyPointAnnotation.putPin(location: CLLocationCoordinate2D(latitude: pin.latitude, longitude: pin.longitude), mapView: mapView)
+            MyPointAnnotation.putPin(mapView: mapView, pin: pin)
         }
     }
     
@@ -84,10 +85,10 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     }
     
     func addAnnotation(location: CLLocationCoordinate2D) {
-        MyPointAnnotation.putPin(location: location, mapView: mapView)
         let newPin = Pin(context: dataController.viewContext)
         newPin.latitude = location.latitude
         newPin.longitude = location.longitude
+        MyPointAnnotation.putPin(mapView: mapView, pin: newPin)
         dataController.saveContext()
     }
     
@@ -104,28 +105,29 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         else {
             currentCenter = Map(context: dataController.viewContext)
         }
-        currentCenter.setValuesForKeys(["longitudeDelta" : mapView.region.span.longitudeDelta, "latitudeDelta" : mapView.region.span.latitudeDelta, "centerLatitude" : mapView.region.center.latitude, "centerLongitude" : mapView.region.center.longitude])
+        currentCenter.setValuesForKeys(["longitudeDelta": mapView.region.span.longitudeDelta, "latitudeDelta": mapView.region.span.latitudeDelta, "centerLatitude": mapView.region.center.latitude, "centerLongitude": mapView.region.center.longitude])
         dataController.saveContext()
     }
     
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
         let myAnnotation = view.annotation as! MyPointAnnotation
-        let latitude = myAnnotation.coordinate.latitude
-        let longitude = myAnnotation.coordinate.longitude
-        photoAlbumVC.currentPin = myAnnotation.coordinate
-        setupFetchedResultsController(latitude: latitude, longitude: longitude)
+        let latitude = myAnnotation.pin.latitude
+        let longitude = myAnnotation.pin.longitude
+        photoAlbumVC.currentPin = myAnnotation.pin
+        setupFetchedResultsController(pin: myAnnotation.pin)
         if let sections = fetchedImagesController.sections, sections.count > 0, sections[0].numberOfObjects > 0 {
             photoAlbumVC.fetchedImagesController = fetchedImagesController
             self.navigationController!.pushViewController(photoAlbumVC, animated: true)
         }
         else {
-            FlickrApiClient.getImageUrls(latitude: latitude, longitude: longitude) {(result, error) in
-                guard let urls = result else {
+            FlickrApiClient.getImageUrls(latitude: latitude, longitude: longitude) {(result, title, error) in
+                guard let urls = result, let titles = title else {
                     print(error!.localizedDescription)
                     return
                 }
                 photoAlbumVC.imageUrls = urls
+                photoAlbumVC.titles = titles
                 photoAlbumVC.dataController = self.dataController
                 self.navigationController!.pushViewController(photoAlbumVC, animated: true)
             }

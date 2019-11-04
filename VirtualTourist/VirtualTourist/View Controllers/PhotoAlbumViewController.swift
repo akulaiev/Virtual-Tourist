@@ -17,8 +17,9 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
     @IBOutlet weak var noImagesLabel: UILabel!
     
     var dataController: DataController!
-    var currentPin: CLLocationCoordinate2D!
+    var currentPin: Pin!
     var imageUrls: [URL] = []
+    var titles: [String] = []
     var fetchedImagesController: NSFetchedResultsController<Photo>!
     
     override func viewDidLoad() {
@@ -32,9 +33,9 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         if let currentPin = currentPin {
-            let mapRegion = MKCoordinateRegion(center: currentPin, span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
+            let mapRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentPin.latitude, longitude: currentPin.longitude), span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
             mapView.setRegion(mapRegion, animated: true)
-            MyPointAnnotation.putPin(location: currentPin, mapView: mapView)
+            MyPointAnnotation.putPin(mapView: mapView, pin: currentPin)
             noImagesLabel.isHidden = true
         }
     }
@@ -76,11 +77,14 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
             cell.indicatorView.stopAnimating()
             cell.photoImageView.layer.borderWidth = 0
             cell.photoImageView.image = image
-            let coreImage = Photo(context: self.dataController.viewContext)
-            coreImage.latitude = self.currentPin.latitude
-            coreImage.longitude = self.currentPin.longitude
-            coreImage.photoImg = data!
-            self.dataController.saveContext()
+            self.dataController.backgroundContext.perform {
+                let coreImage = Photo(context: self.dataController.viewContext)
+//                coreImage.setValuesForKeys(["title": self.titles[indexPath.row], "photoImg": data!, "pin": self.currentPin!])
+                coreImage.title = self.titles[indexPath.row]
+                coreImage.photoImg = data!
+                coreImage.pin = self.currentPin
+                try? self.dataController.backgroundContext.save()
+            }
         }
     }
     
@@ -138,14 +142,8 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
             fatalError("Unknow switch value")
         }
     }
-    
-//    func controllerWillChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-//        collectionView.reloadData()
-////        tableView.beginUpdates()
-//    }
 
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         collectionView.reloadData()
-//        tableView.endUpdates()
     }
 }

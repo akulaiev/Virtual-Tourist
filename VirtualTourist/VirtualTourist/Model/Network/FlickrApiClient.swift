@@ -28,35 +28,37 @@ class FlickrApiClient {
     static let imgSize = "n"
     static let searchStr = "https://www.flickr.com/services/rest/?method=flickr.photos.search&api_key=88bfcc4e3840926ce88b943fa2f6b80f&format=json&"
     
-    class func getLocationPicsList(latitude: Double, longitude: Double, completion: @escaping ([URL]?, Error?) -> Void) {
+    class func getLocationPicsList(latitude: Double, longitude: Double, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
         let page = Int.random(in: 1...250)
         let url = URL(string: searchStr + "lat=\(latitude)&lon=\(longitude)&page=\(page)")!
         NetworkingTasks.taskForRequest(requestMethod: "GET", url: url, responseType: PhotoSearchResponse.self) { (result, error) in
             guard error == nil else {
-                completion(nil, error)
+                completion(nil, nil, error)
                 return
             }
             if let result = result {
                 var imageUrls: [URL] = []
+                var titles: [String] = []
                 for photo in result.photos.photo {
                     let imageStrTmp = "https://farm\(photo.farm).staticflickr.com/\(photo.server)/\(photo.id)_\(photo.secret)_q.jpg"
                     imageUrls.append(URL(string: imageStrTmp)!)
+                    titles.append(photo.title)
                 }
                 DispatchQueue.main.async {
-                    completion(imageUrls, nil)
+                    completion(imageUrls, titles, nil)
                 }
             }
         }
     }
     
-    class func getImageUrls(latitude: Double, longitude: Double, completion: @escaping ([URL]?, Error?) -> Void) {
-        FlickrApiClient.getLocationPicsList(latitude: latitude, longitude: longitude) { (response, error) in
+    class func getImageUrls(latitude: Double, longitude: Double, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
+        FlickrApiClient.getLocationPicsList(latitude: latitude, longitude: longitude) { (response, titles, error) in
             guard let response = response else {
-                completion(nil, error)
+                completion(nil, nil, error)
                 return
             }
             DispatchQueue.main.async {
-                completion(response, nil)
+                completion(response, titles, nil)
             }
         }
     }
