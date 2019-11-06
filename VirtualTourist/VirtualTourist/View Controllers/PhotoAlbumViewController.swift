@@ -10,17 +10,20 @@ import UIKit
 import MapKit
 import CoreData
 
-class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout, MKMapViewDelegate {
+class PhotoAlbumViewController: UIViewController {
     
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var collectionView: UICollectionView!
     @IBOutlet weak var noImagesLabel: UILabel!
+    @IBOutlet weak var collectionsButton: UIBarButtonItem!
     
     var dataController: DataController!
     var currentPin: Pin!
     var imageUrls: [URL] = []
     var titles: [String] = []
     var fetchedImagesController: NSFetchedResultsController<Photo>!
+    var titleToDel: String?
+    var indexPathToDel: [IndexPath]?
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -40,10 +43,89 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
         }
     }
     
-    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        return MyPointAnnotation.viewForAnnotation(annotation: annotation)
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        fetchedImagesController = nil
     }
+    
+    fileprivate func updateCellUI(_ cell: CustomCollectionViewCell, isDownloading: Bool) {
+        if isDownloading {
+            cell.photoImageView.layer.borderWidth = 1.5
+            cell.photoImageView.layer.borderColor = UIColor.lightGray.cgColor
+            cell.indicatorView.startAnimating()
+        }
+        else {
+            cell.indicatorView.stopAnimating()
+            cell.photoImageView.layer.borderWidth = 0
+        }
+    }
+    
+    fileprivate func getImageFromNetwork(_ cell: CustomCollectionViewCell, _ indexPath: IndexPath) {
+        updateCellUI(cell, isDownloading: true)
+        FlickrApiClient.downloadImage(url: imageUrls[indexPath.row]) { (image, data, error) in
+            guard let image = image else {
+                print(error!.localizedDescription)
+                return
+            }
+            self.updateCellUI(cell, isDownloading: false)
+            cell.photoImageView.image = image
+            let coreImage = Photo(context: self.dataController.viewContext)
+            coreImage.setValuesForKeys(["photoImg": data!, "title": self.titles[indexPath.row], "pin": self.currentPin!])
+            self.dataController.saveContext()
+            
+        }
+    }
+    
+    fileprivate func updateCollectionView() {
+        imageUrls = []
+        let deleteFetch = NSFetchRequest<NSFetchRequestResult>(entityName: "Photo")
+        let predicate = NSPredicate(format: "pin == %@", currentPin)
+        deleteFetch.predicate = predicate
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: deleteFetch)
+        do {
+            try dataController.viewContext.execute(deleteRequest)
+            dataController.saveContext()
+        }
+        catch {
+            print(error.localizedDescription)
+        }
+        self.collectionView.reloadData()
+        FlickrApiClient.getImageUrls(pin: currentPin, completion: { (result, titles, error) in
+            guard let imageUrls = result, let titles = titles else {
+                print(error!.localizedDescription)
+                return
+            }
+            self.imageUrls = imageUrls
+            self.titles = titles
+            self.collectionView.reloadData()
+            self.collectionsButton.isEnabled = true
+        })
+    }
+    
+    @IBAction func collectionsButtonTapped(_ sender: UIBarButtonItem) {
+        if sender.title == "New Collection" {
+            collectionsButton.isEnabled = false
+            updateCollectionView()
+        }
+        else if sender.title == "Remove Selected Pictures" {
+            if let titleToDel = titleToDel, let indexPath = indexPathToDel {
+                let predicate = NSPredicate(format: "title == %@ AND pin == %@", titleToDel, currentPin)
+                let objToDel = dataController.fetchRecordsForEntity("Photo", inManagedObjectContext: dataController.viewContext, predicate: predicate) as! [Photo]
+                print(objToDel.count)
+                print(objToDel[0].title!)
+                dataController.viewContext.delete(objToDel[0])
+                collectionView.deleteItems(at: indexPath)
+                collectionView.reloadData()
+                dataController.saveContext()
+                collectionsButton.tintColor = .blue
+                collectionsButton.title = "New Collection"
+            }
+        }
+    }
+}
 
+// Collection view delegate methods
+extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     func numberOfSections(in collectionView: UICollectionView) -> Int {
         if let fetchedRes = fetchedImagesController, let sections = fetchedRes.sections {
             return sections.count
@@ -51,13 +133,15 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
         return 1
     }
     
-    // Returns number of collection cells
+    // Returns number of collection cells (downloaded from Flickr or stored in Core Data)
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         if let fetchedImagesController = fetchedImagesController, let sections = fetchedImagesController.sections, sections.count > 0, sections[section].numberOfObjects > 0 {
             return sections[section].numberOfObjects
         }
         else if imageUrls.count == 0 {
-            noImagesLabel.isHidden = false
+            if titles.count == 0 {
+                noImagesLabel.isHidden = false
+            }
             return 0
         }
         else {
@@ -65,41 +149,13 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
         }
     }
     
-    fileprivate func networkImagesDownload(_ cell: CustomCollectionViewCell, _ indexPath: IndexPath) {
-        cell.photoImageView.layer.borderWidth = 1.5
-        cell.photoImageView.layer.borderColor = UIColor.lightGray.cgColor
-        cell.indicatorView.startAnimating()
-        FlickrApiClient.downloadImage(url: imageUrls[indexPath.row]) { (image, data, error) in
-            guard let image = image else {
-                print(error!.localizedDescription)
-                return
-            }
-            cell.indicatorView.stopAnimating()
-            cell.photoImageView.layer.borderWidth = 0
-            cell.photoImageView.image = image
-            self.dataController.backgroundContext.perform {
-                let coreImage = Photo(context: self.dataController.viewContext)
-//                coreImage.setValuesForKeys(["title": self.titles[indexPath.row], "photoImg": data!, "pin": self.currentPin!])
-                coreImage.title = self.titles[indexPath.row]
-                coreImage.photoImg = data!
-                coreImage.pin = self.currentPin
-                try? self.dataController.backgroundContext.save()
-            }
-        }
+    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
+        collectionsButton.title = "Remove Selected Pictures"
+        collectionsButton.tintColor = .red
+        titleToDel = titles[indexPath.row]
+        indexPathToDel = [indexPath]
     }
     
-    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCell", for: indexPath) as! CustomCollectionViewCell
-        if imageUrls.count > 0 {
-            networkImagesDownload(cell, indexPath)
-        }
-        else if let sections = fetchedImagesController.sections, sections.count > 0, sections[indexPath.section].numberOfObjects > 0 {
-            let pic = fetchedImagesController.object(at: indexPath)
-            cell.photoImageView.image = UIImage(data: pic.photoImg!)!
-        }
-        return cell
-    }
-
     // Calculates and returnes cells' size
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> CGSize {
         let numberOfItemsPerRow: CGFloat = 3
@@ -114,36 +170,24 @@ class PhotoAlbumViewController: UIViewController, UICollectionViewDelegate, UICo
         }
     }
     
-//    func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-//        let storyboard = UIStoryboard(name: "Main", bundle: nil)
-//        let showMemeVC: ShowMemeViewController
-//        showMemeVC = storyboard.instantiateViewController(withIdentifier: "showMemeVC") as! ShowMemeViewController
-//        let meme = self.memes[(indexPath as NSIndexPath).row]
-//        showMemeVC.memeImage = meme.memedImage
-//        navigationController?.pushViewController(showMemeVC, animated: true)
-//    }
+    func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
+        let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCell", for: indexPath) as! CustomCollectionViewCell
+        if let fetchedController = fetchedImagesController, let sections = fetchedController.sections, sections.count > 0, sections[indexPath.section].numberOfObjects > 0 {
+            let pic = fetchedImagesController.object(at: indexPath)
+            if let coreImg = pic.photoImg, let image = UIImage(data: coreImg) {
+                cell.photoImageView.image = image
+            }
+        }
+        else if imageUrls.count > 0 {
+            getImageFromNetwork(cell, indexPath)
+        }
+        return cell
+    }
 }
 
-extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
-    
-    func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
-        switch type {
-        case .insert:
-            collectionView.insertItems(at: [newIndexPath!])
-            break
-        case .delete:
-            collectionView.deleteItems(at: [indexPath!])
-            break
-        case .update:
-            collectionView.reloadItems(at: [indexPath!])
-        case .move:
-            collectionView.moveItem(at: indexPath!, to: newIndexPath!)
-        @unknown default:
-            fatalError("Unknow switch value")
-        }
-    }
-
-    func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
-        collectionView.reloadData()
+// MapKit view delegate methods
+extension PhotoAlbumViewController: MKMapViewDelegate {
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        return MyPointAnnotation.viewForAnnotation(annotation: annotation)
     }
 }

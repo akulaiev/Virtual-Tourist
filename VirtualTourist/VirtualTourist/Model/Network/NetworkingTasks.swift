@@ -11,7 +11,7 @@ import Foundation
 class NetworkingTasks {
     
     //Static function to perform all kinds of networking requests
-    class func taskForRequest<ResponseType: Decodable>(requestMethod: String, url: URL, responseType: ResponseType.Type, completion: @escaping (ResponseType?, Error?) -> Void) {
+    class func taskForRequest<ResponseType: Decodable>(url: URL, responseType: ResponseType.Type, completion: @escaping (ResponseType?, Error?) -> Void) {
         let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
             guard let data = data else {
                 DispatchQueue.main.async {

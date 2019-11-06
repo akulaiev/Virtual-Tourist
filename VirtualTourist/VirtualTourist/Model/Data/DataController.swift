@@ -13,7 +13,6 @@ import CoreData
 class DataController {
     
     let persistentContainer: NSPersistentContainer
-    let backgroundContext:NSManagedObjectContext!
     
     var viewContext: NSManagedObjectContext {
         return persistentContainer.viewContext
@@ -21,14 +20,10 @@ class DataController {
     
     init(modelName: String) {
         persistentContainer = NSPersistentContainer(name: modelName)
-        backgroundContext = persistentContainer.newBackgroundContext()
     }
     
     func configureContexts() {
         viewContext.automaticallyMergesChangesFromParent = true
-        viewContext.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
-        
-        backgroundContext.automaticallyMergesChangesFromParent = true
         viewContext.mergePolicy = NSMergePolicy.mergeByPropertyStoreTrump
     }
     
@@ -40,6 +35,24 @@ class DataController {
             self.configureContexts()
             completion?()
         }
+    }
+    
+    func fetchRecordsForEntity(_ entity: String, inManagedObjectContext managedObjectContext: NSManagedObjectContext, predicate: NSPredicate?) -> [NSManagedObject] {
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
+        if let predicate = predicate {
+            fetchRequest.predicate = predicate
+        }
+        var result = [NSManagedObject]()
+        do {
+            let records = try managedObjectContext.fetch(fetchRequest)
+            if let records = records as? [NSManagedObject] {
+                result = records
+            }
+        }
+        catch {
+            print("Unable to fetch managed objects for entity \(entity).")
+        }
+        return result
     }
     
     func saveContext() {

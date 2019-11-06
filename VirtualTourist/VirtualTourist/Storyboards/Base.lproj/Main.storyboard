@@ -71,7 +71,11 @@
                                 <rect key="frame" x="0.0" y="813" width="414" height="49"/>
                                 <items>
                                     <barButtonItem style="plain" systemItem="flexibleSpace" id="iWl-Go-gax"/>
-                                    <barButtonItem title="New Collection" id="kkZ-ZN-gVT"/>
+                                    <barButtonItem title="New Collection" id="kkZ-ZN-gVT">
+                                        <connections>
+                                            <action selector="collectionsButtonTapped:" destination="xxb-W9-1YJ" id="yiJ-3J-9mH"/>
+                                        </connections>
+                                    </barButtonItem>
                                     <barButtonItem style="plain" systemItem="flexibleSpace" id="heZ-cR-FkN"/>
                                 </items>
                             </toolbar>
@@ -130,6 +134,7 @@
                     </view>
                     <connections>
                         <outlet property="collectionView" destination="V3h-FD-JEt" id="6UD-L8-ii5"/>
+                        <outlet property="collectionsButton" destination="kkZ-ZN-gVT" id="ecq-ba-e0e"/>
                         <outlet property="mapView" destination="Zea-Iu-hnb" id="k7G-LI-kFu"/>
                         <outlet property="noImagesLabel" destination="Wxf-Ei-sNm" id="3Rn-6c-cad"/>
                     </connections>

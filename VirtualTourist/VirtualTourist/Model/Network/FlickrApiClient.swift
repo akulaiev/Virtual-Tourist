@@ -28,15 +28,19 @@ class FlickrApiClient {
     static let imgSize = "n"
     static let searchStr = "https://www.flickr.com/services/rest/?method=flickr.photos.search&api_key=88bfcc4e3840926ce88b943fa2f6b80f&format=json&"
     
-    class func getLocationPicsList(latitude: Double, longitude: Double, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
-        let page = Int.random(in: 1...250)
-        let url = URL(string: searchStr + "lat=\(latitude)&lon=\(longitude)&page=\(page)")!
-        NetworkingTasks.taskForRequest(requestMethod: "GET", url: url, responseType: PhotoSearchResponse.self) { (result, error) in
+    class func getLocationPicsList(pin: Pin, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
+        var page = 1
+        if pin.photoPagesNum != 0 {
+            page = Int.random(in: 1...Int(pin.photoPagesNum))
+        }
+        let url = URL(string: searchStr + "lat=\(pin.latitude)&lon=\(pin.longitude)&page=\(page)")!
+        NetworkingTasks.taskForRequest(url: url, responseType: PhotoSearchResponse.self) { (result, error) in
             guard error == nil else {
                 completion(nil, nil, error)
                 return
             }
             if let result = result {
+                pin.photoPagesNum = Int64(result.photos.pages)
                 var imageUrls: [URL] = []
                 var titles: [String] = []
                 for photo in result.photos.photo {
@@ -51,8 +55,8 @@ class FlickrApiClient {
         }
     }
     
-    class func getImageUrls(latitude: Double, longitude: Double, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
-        FlickrApiClient.getLocationPicsList(latitude: latitude, longitude: longitude) { (response, titles, error) in
+    class func getImageUrls(pin: Pin, completion: @escaping ([URL]?, [String]?, Error?) -> Void) {
+        FlickrApiClient.getLocationPicsList(pin: pin) { (response, titles, error) in
             guard let response = response else {
                 completion(nil, nil, error)
                 return
