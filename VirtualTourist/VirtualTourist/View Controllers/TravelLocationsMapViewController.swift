@@ -16,6 +16,10 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
     
     var dataController: DataController!
     var pins: [Pin] = []
+    var urls: [URL] = []
+    var titles: [String] = []
+    var fetchedImagesController: NSFetchedResultsController<Photo>!
+    var picNum: Int = 0
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -36,6 +40,11 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         }
     }
 
+    override func viewDidDisappear(_ animated: Bool) {
+        super.viewDidDisappear(animated)
+        fetchedImagesController = nil
+    }
+    
     func placeSavedPins() {
         for pin in pins {
             MyPointAnnotation.putPin(mapView: mapView, pin: pin)
@@ -75,21 +84,62 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         dataController.saveContext()
     }
     
+    func setupFetchedResultsController(currentPin: Pin, delegate: PhotoAlbumViewController) {
+        let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
+        let predicate = NSPredicate(format: "pin == %@", currentPin)
+        fetchRequest.predicate = predicate
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: false)
+        fetchRequest.sortDescriptors = [sortDescriptor]
+        fetchedImagesController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: dataController.viewContext, sectionNameKeyPath: nil, cacheName: "\(currentPin.latitude)" + " " + "\(currentPin.longitude)")
+        fetchedImagesController.delegate = delegate
+        do {
+            try fetchedImagesController.performFetch()
+        } catch {
+            fatalError("The fetch could not be performed: \(error.localizedDescription)")
+        }
+    }
+    
+    func getImageFromNetwork(imageUrl: URL, title: String, currentPin: Pin) {
+        FlickrApiClient.downloadImage(url: imageUrl) { (image, data, error) in
+            guard let data = data else {
+                print(error!.localizedDescription)
+                return
+            }
+            let coreImage = Photo(context: self.dataController.viewContext)
+            coreImage.setValuesForKeys(["photoImg": data, "title": title, "pin": currentPin])
+            self.dataController.saveContext()
+        }
+    }
+    
+    fileprivate func getUrls(currentPin: Pin) {
+        FlickrApiClient.getImageUrls(pin: currentPin) {(result, title, error) in
+            guard let urls = result, let titles = title else {
+                print(error!.localizedDescription)
+                return
+            }
+            self.urls = urls
+            self.titles = titles
+            self.picNum = urls.count
+            for index in 0..<self.picNum {
+                self.getImageFromNetwork(imageUrl: urls[index], title: titles[index], currentPin: currentPin)
+            }
+        }
+    }
+    
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
         let myAnnotation = view.annotation as! MyPointAnnotation
         photoAlbumVC.currentPin = myAnnotation.pin
         photoAlbumVC.dataController = dataController
-        if photoAlbumVC.imageUrls.count == 0 {
-            FlickrApiClient.getImageUrls(pin: myAnnotation.pin) {(result, title, error) in
-                guard let urls = result, let titles = title else {
-                    print(error!.localizedDescription)
-                    return
-                }
-                photoAlbumVC.imageUrls = urls
-                photoAlbumVC.titles = titles
-                self.navigationController!.pushViewController(photoAlbumVC, animated: true)
-            }
+        setupFetchedResultsController(currentPin: myAnnotation.pin, delegate: photoAlbumVC)
+        if fetchedImagesController.sections?.count == 1, fetchedImagesController!.sections?[0].numberOfObjects == 0 {
+            getUrls(currentPin: myAnnotation.pin)
+            photoAlbumVC.picNum = picNum
         }
+        else {
+            photoAlbumVC.picNum = (fetchedImagesController!.sections?[0].numberOfObjects)!
+        }
+        photoAlbumVC.fetchedImagesController = fetchedImagesController
+        self.navigationController!.pushViewController(photoAlbumVC, animated: true)
     }
 }
