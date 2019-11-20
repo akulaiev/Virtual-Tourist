@@ -15,11 +15,13 @@
         <attribute name="latitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
         <attribute name="longitude" optional="YES" attributeType="Double" defaultValueString="0.0" usesScalarValueType="YES" syncable="YES"/>
         <attribute name="photoPagesNum" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES" syncable="YES"/>
+        <attribute name="titles" optional="YES" attributeType="Transformable" customClassName="[String]" syncable="YES"/>
+        <attribute name="urls" optional="YES" attributeType="Transformable" customClassName="[String]" syncable="YES"/>
         <relationship name="photos" optional="YES" toMany="YES" deletionRule="Cascade" destinationEntity="Photo" inverseName="pin" inverseEntity="Photo" syncable="YES"/>
     </entity>
     <elements>
         <element name="Map" positionX="-1496.33984375" positionY="713.24609375" width="128" height="105"/>
         <element name="Photo" positionX="-1397.328125" positionY="581.59375" width="128" height="88"/>
-        <element name="Pin" positionX="-1583.6171875" positionY="581.72265625" width="128" height="103"/>
+        <element name="Pin" positionX="-1583.6171875" positionY="581.72265625" width="128" height="135"/>
     </elements>
 </model>

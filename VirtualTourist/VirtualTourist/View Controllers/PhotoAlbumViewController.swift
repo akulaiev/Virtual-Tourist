@@ -22,7 +22,6 @@ class PhotoAlbumViewController: UIViewController {
     var fetchedImagesController: NSFetchedResultsController<Photo>!
     var fetchedResultsProcessingOperations: [BlockOperation] = []
     var pathToDelete: IndexPath!
-    var picNum: Int = 0
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -32,9 +31,42 @@ class PhotoAlbumViewController: UIViewController {
         collectionView.register(UINib.init(nibName: "CustomCollectionViewCell", bundle: nil), forCellWithReuseIdentifier: "photoCell")
     }
     
+    func setupFetchedResultsController(currentPin: Pin) {
+        let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
+        let predicate = NSPredicate(format: "pin == %@", currentPin)
+        fetchRequest.predicate = predicate
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: false)
+        fetchRequest.sortDescriptors = [sortDescriptor]
+        fetchedImagesController = NSFetchedResultsController(fetchRequest: fetchRequest, managedObjectContext: dataController.viewContext, sectionNameKeyPath: nil, cacheName: "\(currentPin.latitude)" + " " + "\(currentPin.longitude)")
+        fetchedImagesController.delegate = self
+        do {
+            try fetchedImagesController.performFetch()
+        } catch {
+            fatalError("The fetch could not be performed: \(error.localizedDescription)")
+        }
+    }
+    
+    func getImageFromNetwork(imageUrl: URL, title: String, currentPin: Pin) {
+        FlickrApiClient.downloadImage(url: imageUrl) { (image, data, error) in
+            guard let data = data else {
+                print(error!.localizedDescription)
+                return
+            }
+            let coreImage = Photo(context: self.dataController.viewContext)
+            coreImage.setValuesForKeys(["photoImg": data, "title": title, "pin": currentPin])
+            self.dataController.saveContext()
+        }
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         if let currentPin = currentPin {
+            setupFetchedResultsController(currentPin: currentPin)
+            if fetchedImagesController.sections?.count == 1, fetchedImagesController!.sections?[0].numberOfObjects == 0 {
+                for index in 0..<currentPin.urls!.count {
+                    self.getImageFromNetwork(imageUrl: URL(string: currentPin.urls![index])!, title: currentPin.titles![index], currentPin: currentPin)
+                }
+            }
             let mapRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentPin.latitude, longitude: currentPin.longitude), span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
             mapView.setRegion(mapRegion, animated: true)
             MyPointAnnotation.putPin(mapView: mapView, pin: currentPin)
@@ -91,10 +123,10 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
     
     // Returns number of collection cells stored in Core Data
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if picNum == 0 {
-            noImagesLabel.isHidden = false
+        if let urls = currentPin.urls {
+            return urls.count
         }
-        return picNum
+        return 0
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
