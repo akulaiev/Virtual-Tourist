@@ -13,13 +13,15 @@ import CoreData
 class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIGestureRecognizerDelegate, NSFetchedResultsControllerDelegate {
 
     @IBOutlet weak var mapView: MKMapView!
+    @IBOutlet weak var editButton: UIBarButtonItem!
+    @IBOutlet weak var deletePinsButton: UIButton!
     
     var dataController: DataController!
     var pins: [Pin] = []
-    var urls: [URL] = []
-    var titles: [String] = []
+    var pinsToDelete: [Pin] = []
     var fetchedImagesController: NSFetchedResultsController<Photo>!
-    var picNum: Int = 0
+    var imageForPinUrls: [URL] = []
+    var titlesForPin: [String] = []
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -29,8 +31,14 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         mapView.addGestureRecognizer(gestureRecognizer)
     }
     
+    fileprivate func changeDeleteButtonState(isEditing: Bool) {
+        deletePinsButton.isEnabled = isEditing
+        deletePinsButton.isHidden = !isEditing
+    }
+    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
+        changeDeleteButtonState(isEditing: false)
         pins = dataController.fetchRecordsForEntity("Pin", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Pin]
         placeSavedPins()
         let currentCenterArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil)
@@ -84,37 +92,63 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         dataController.saveContext()
     }
     
-    fileprivate func getUrls(currentPin: Pin, photoAlbumVC: PhotoAlbumViewController) {
+    fileprivate func createDataEntries(currentPin: Pin, photoAlbumVC: PhotoAlbumViewController) {
         FlickrApiClient.getImageUrls(pin: currentPin) {(result, title, error) in
             guard let urls = result, let titles = title else {
                 print(error!.localizedDescription)
                 return
             }
-            self.urls = urls
-            self.titles = titles
-            self.picNum = urls.count
-            currentPin.urls = []
-            currentPin.titles = []
-            for url in self.urls {
-                currentPin.urls!.append(url.absoluteString)
-            }
-            for title in self.titles {
-                currentPin.titles!.append(title)
+            self.imageForPinUrls = urls
+            self.titlesForPin = titles
+            for index in 0..<self.imageForPinUrls.count {
+                let coreImage = Photo(context: self.dataController.viewContext)
+                coreImage.setValuesForKeys(["url": self.imageForPinUrls[index].absoluteString, "title": self.titlesForPin[index], "pin": currentPin])
+                self.dataController.saveContext()
             }
             self.navigationController!.pushViewController(photoAlbumVC, animated: true)
         }
     }
     
+    func checkImagesForPin(currentPin: Pin) -> Bool {
+        let predicate = NSPredicate(format: "pin == %@", currentPin)
+        let result = dataController.fetchRecordsForEntity("Photo", inManagedObjectContext: dataController.viewContext, predicate: predicate)
+        if result.count == 0 {
+            return false
+        }
+        return true
+    }
+    
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
-        let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
         let myAnnotation = view.annotation as! MyPointAnnotation
-        photoAlbumVC.currentPin = myAnnotation.pin
-        photoAlbumVC.dataController = dataController
-        if myAnnotation.pin.urls == nil {
-            getUrls(currentPin: myAnnotation.pin, photoAlbumVC: photoAlbumVC)
+        if deletePinsButton.isHidden {
+            let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
+            photoAlbumVC.currentPin = myAnnotation.pin
+            photoAlbumVC.dataController = dataController
+            if !checkImagesForPin(currentPin: myAnnotation.pin) {
+                createDataEntries(currentPin: myAnnotation.pin, photoAlbumVC: photoAlbumVC)
+            }
+            else {
+                self.navigationController!.pushViewController(photoAlbumVC, animated: true)
+            }
         }
         else {
-            self.navigationController!.pushViewController(photoAlbumVC, animated: true)
+            pinsToDelete.append(myAnnotation.pin)
+        }
+    }
+    
+    @IBAction func editButtonTapped(_ sender: UIBarButtonItem) {
+        if sender.title == "Edit" {
+            self.setEditing(!self.isEditing, animated: true)
+            let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: self, action: nil)
+            self.navigationItem.setRightBarButton(doneButton, animated: true)
+            changeDeleteButtonState(isEditing: true)
+        }
+    }
+    
+    @IBAction func deletePinButtonTapped(_ sender: UIButton) {
+        for pin in pinsToDelete {
+            dataController.viewContext.delete(pin)
+            dataController.saveContext()
         }
     }
 }

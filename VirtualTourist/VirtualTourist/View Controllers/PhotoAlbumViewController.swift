@@ -23,6 +23,8 @@ class PhotoAlbumViewController: UIViewController {
     var fetchedResultsProcessingOperations: [BlockOperation] = []
     var pathToDelete: IndexPath!
     
+    var shouldReloadCollectionView: Bool = false
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         mapView.delegate = self
@@ -46,31 +48,17 @@ class PhotoAlbumViewController: UIViewController {
         }
     }
     
-    func getImageFromNetwork(imageUrl: URL, title: String, currentPin: Pin) {
-        FlickrApiClient.downloadImage(url: imageUrl) { (image, data, error) in
-            guard let data = data else {
-                print(error!.localizedDescription)
-                return
-            }
-            let coreImage = Photo(context: self.dataController.viewContext)
-            coreImage.setValuesForKeys(["photoImg": data, "title": title, "pin": currentPin])
-            self.dataController.saveContext()
-        }
-    }
-    
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         if let currentPin = currentPin {
             setupFetchedResultsController(currentPin: currentPin)
-            if fetchedImagesController.sections?.count == 1, fetchedImagesController!.sections?[0].numberOfObjects == 0 {
-                for index in 0..<currentPin.urls!.count {
-                    self.getImageFromNetwork(imageUrl: URL(string: currentPin.urls![index])!, title: currentPin.titles![index], currentPin: currentPin)
-                }
-            }
             let mapRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentPin.latitude, longitude: currentPin.longitude), span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
             mapView.setRegion(mapRegion, animated: true)
             MyPointAnnotation.putPin(mapView: mapView, pin: currentPin)
             noImagesLabel.isHidden = true
+            if fetchedImagesController.sections?.count == 0 || fetchedImagesController.sections?[0].numberOfObjects == 0 {
+                noImagesLabel.isHidden = false
+            }
         }
     }
     
@@ -115,18 +103,12 @@ class PhotoAlbumViewController: UIViewController {
 extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDataSource, UICollectionViewDelegateFlowLayout {
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
-        if let fetchedResultsController = fetchedImagesController {
-            return fetchedResultsController.sections?.count ?? 1
-        }
-        return 1
+        return fetchedImagesController.sections?.count ?? 1
     }
     
     // Returns number of collection cells stored in Core Data
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        if let urls = currentPin.urls {
-            return urls.count
-        }
-        return 0
+        return fetchedImagesController.sections?[0].numberOfObjects ?? 0
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
@@ -149,11 +131,29 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
         }
     }
     
+    func getImageFromNetwork(imageUrl: URL, cell: CustomCollectionViewCell, indexPath: IndexPath) {
+        updateCellUI(cell, isDownloading: true)
+        FlickrApiClient.downloadImage(url: imageUrl) { (data, error) in
+            guard let data = data else {
+                print(error!.localizedDescription)
+                return
+            }
+            self.updateCellUI(cell, isDownloading: false)
+            cell.photoImageView.image = UIImage(data: data)!
+            let photoEntity = self.fetchedImagesController.object(at: indexPath)
+            photoEntity.photoImg = data
+            self.dataController.saveContext()
+        }
+    }
+    
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
-        let photo = fetchedImagesController.object(at: indexPath)
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCell", for: indexPath) as! CustomCollectionViewCell
-        // Configure cell
-        cell.photoImageView.image = UIImage(data: photo.photoImg!)!
+        if let image = fetchedImagesController.object(at: indexPath).photoImg {
+            cell.photoImageView.image = UIImage(data: image)
+        }
+        else {
+            getImageFromNetwork(imageUrl: URL(string: fetchedImagesController.object(at: indexPath).url!)!, cell: cell, indexPath: indexPath)
+        }
         return cell
     }
 }
@@ -166,6 +166,7 @@ extension PhotoAlbumViewController: MKMapViewDelegate {
 }
 
 extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
+ 
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
         switch type {
         case .insert:
@@ -180,7 +181,7 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
             collectionView.moveItem(at: indexPath!, to: newIndexPath!)
         }
     }
-    
+
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange sectionInfo: NSFetchedResultsSectionInfo, atSectionIndex sectionIndex: Int, for type: NSFetchedResultsChangeType) {
         let indexSet = IndexSet(integer: sectionIndex)
         switch type {
@@ -190,7 +191,7 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
             fatalError("Invalid change type in controller(_:didChange:atSectionIndex:for:). Only .insert or .delete should be possible.")
         }
     }
-    
+
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<NSFetchRequestResult>) {
         collectionView!.performBatchUpdates({ () -> Void in
             for operation in self.fetchedResultsProcessingOperations {
@@ -200,11 +201,4 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
             self.fetchedResultsProcessingOperations.removeAll(keepingCapacity: false)
         })
     }
-    
-//    deinit {
-//        for operation in fetchedResultsProcessingOperations {
-//            operation.cancel()
-//        }
-//        fetchedResultsProcessingOperations.removeAll()
-//    }
 }

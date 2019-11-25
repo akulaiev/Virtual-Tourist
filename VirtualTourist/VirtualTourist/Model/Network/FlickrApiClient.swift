@@ -67,20 +67,14 @@ class FlickrApiClient {
         }
     }
     
-    class func downloadImage(url: URL, completion: @escaping (UIImage?, Data?, Error?) ->Void) {
+    class func downloadImage(url: URL, completion: @escaping (Data?, Error?) ->Void) {
         let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
             guard let data = data else {
-                completion(nil, nil, error)
-                return
-            }
-            guard let image = UIImage(data: data) else {
-                DispatchQueue.main.async {
-                    completion(nil, nil, MyError.dataConvertError)
-                }
+                completion(nil, error)
                 return
             }
             DispatchQueue.main.async {
-                completion(image, data, nil)
+                completion(data, nil)
             }
         }
         task.resume()
