@@ -10,16 +10,14 @@ import UIKit
 import MapKit
 import CoreData
 
-class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIGestureRecognizerDelegate, NSFetchedResultsControllerDelegate {
+class TravelLocationsMapViewController: UIViewController {
 
     @IBOutlet weak var mapView: MKMapView!
     @IBOutlet weak var editButton: UIBarButtonItem!
-    @IBOutlet weak var deletePinsButton: UIButton!
+    @IBOutlet weak var deletePinsLabel: UILabel!
     
     var dataController: DataController!
     var pins: [Pin] = []
-    var pinsToDelete: [Pin] = []
-    var fetchedImagesController: NSFetchedResultsController<Photo>!
     var imageForPinUrls: [URL] = []
     var titlesForPin: [String] = []
     
@@ -29,67 +27,19 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         let gestureRecognizer = UILongPressGestureRecognizer(target: self, action: #selector(longTap))
         gestureRecognizer.delegate = self
         mapView.addGestureRecognizer(gestureRecognizer)
-    }
-    
-    fileprivate func changeDeleteButtonState(isEditing: Bool) {
-        deletePinsButton.isEnabled = isEditing
-        deletePinsButton.isHidden = !isEditing
+        pins = dataController.fetchRecordsForEntity("Pin", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Pin]
+        placeSavedPins()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
-        changeDeleteButtonState(isEditing: false)
-        pins = dataController.fetchRecordsForEntity("Pin", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Pin]
-        placeSavedPins()
+        
+        deletePinsLabel.isHidden = true
         let currentCenterArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil)
         if (currentCenterArr.count > 0) {
             let currentCenter = currentCenterArr[0] as! Map
             mapView.region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentCenter.centerLatitude, longitude: currentCenter.centerLongitude), span: MKCoordinateSpan(latitudeDelta: currentCenter.latitudeDelta, longitudeDelta: currentCenter.longitudeDelta))
         }
-    }
-
-    override func viewDidDisappear(_ animated: Bool) {
-        super.viewDidDisappear(animated)
-        fetchedImagesController = nil
-    }
-    
-    func placeSavedPins() {
-        for pin in pins {
-            MyPointAnnotation.putPin(mapView: mapView, pin: pin)
-        }
-    }
-    
-    @objc func longTap(sender: UITapGestureRecognizer){
-        if sender.state == .began {
-            let locationInView = sender.location(in: mapView)
-            let locationOnMap = mapView.convert(locationInView, toCoordinateFrom: mapView)
-            addAnnotation(location: locationOnMap)
-        }
-    }
-    
-    func addAnnotation(location: CLLocationCoordinate2D) {
-        let newPin = Pin(context: dataController.viewContext)
-        newPin.latitude = location.latitude
-        newPin.longitude = location.longitude
-        MyPointAnnotation.putPin(mapView: mapView, pin: newPin)
-        dataController.saveContext()
-    }
-    
-    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        return MyPointAnnotation.viewForAnnotation(annotation: annotation)
-    }
-    
-    func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
-        var centerArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Map]
-        var currentCenter: Map!
-        if centerArr.count > 0 {
-            currentCenter = centerArr[0]
-        }
-        else {
-            currentCenter = Map(context: dataController.viewContext)
-        }
-        currentCenter.setValuesForKeys(["longitudeDelta": mapView.region.span.longitudeDelta, "latitudeDelta": mapView.region.span.latitudeDelta, "centerLatitude": mapView.region.center.latitude, "centerLongitude": mapView.region.center.longitude])
-        dataController.saveContext()
     }
     
     fileprivate func createDataEntries(currentPin: Pin, photoAlbumVC: PhotoAlbumViewController) {
@@ -118,9 +68,71 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
         return true
     }
     
+    fileprivate func changeEditButton(isEditing: Bool, button: UIBarButtonItem) {
+        self.setEditing(!self.isEditing, animated: true)
+        if isEditing {
+            button.title = "Done"
+        }
+        else {
+            button.title = "Edit"
+        }
+        deletePinsLabel.isHidden = !isEditing
+    }
+    
+    @IBAction func editButtonTapped(_ sender: UIBarButtonItem) {
+        if sender.title == "Edit" {
+            changeEditButton(isEditing: true, button:  sender)
+        }
+        else if sender.title == "Done" {
+            changeEditButton(isEditing: false, button: sender)
+        }
+    }
+}
+
+extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecognizerDelegate {
+    
+    func placeSavedPins() {
+        for pin in pins {
+            MyPointAnnotation.createAnnotationForPin(mapView: mapView, pin: pin)
+        }
+    }
+    
+    @objc func longTap(sender: UITapGestureRecognizer){
+        if sender.state == .began {
+            let locationInView = sender.location(in: mapView)
+            let locationOnMap = mapView.convert(locationInView, toCoordinateFrom: mapView)
+            addNewPin(location: locationOnMap)
+        }
+    }
+    
+    func addNewPin(location: CLLocationCoordinate2D) {
+        let newPin = Pin(context: dataController.viewContext)
+        newPin.latitude = location.latitude
+        newPin.longitude = location.longitude
+        MyPointAnnotation.createAnnotationForPin(mapView: mapView, pin: newPin)
+        dataController.saveContext()
+    }
+    
+    func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+        return MyPointAnnotation.viewForAnnotation(annotation: annotation, mapView: mapView)
+    }
+    
+    func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+        var centerArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Map]
+        var currentCenter: Map!
+        if centerArr.count > 0 {
+            currentCenter = centerArr[0]
+        }
+        else {
+            currentCenter = Map(context: dataController.viewContext)
+        }
+        currentCenter.setValuesForKeys(["longitudeDelta": mapView.region.span.longitudeDelta, "latitudeDelta": mapView.region.span.latitudeDelta, "centerLatitude": mapView.region.center.latitude, "centerLongitude": mapView.region.center.longitude])
+        dataController.saveContext()
+    }
+    
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         let myAnnotation = view.annotation as! MyPointAnnotation
-        if deletePinsButton.isHidden {
+        if deletePinsLabel.isHidden {
             let photoAlbumVC = storyboard!.instantiateViewController(withIdentifier: "photoVC") as! PhotoAlbumViewController
             photoAlbumVC.currentPin = myAnnotation.pin
             photoAlbumVC.dataController = dataController
@@ -132,23 +144,10 @@ class TravelLocationsMapViewController: UIViewController, MKMapViewDelegate, UIG
             }
         }
         else {
-            pinsToDelete.append(myAnnotation.pin)
-        }
-    }
-    
-    @IBAction func editButtonTapped(_ sender: UIBarButtonItem) {
-        if sender.title == "Edit" {
-            self.setEditing(!self.isEditing, animated: true)
-            let doneButton = UIBarButtonItem(title: "Done", style: .plain, target: self, action: nil)
-            self.navigationItem.setRightBarButton(doneButton, animated: true)
-            changeDeleteButtonState(isEditing: true)
-        }
-    }
-    
-    @IBAction func deletePinButtonTapped(_ sender: UIButton) {
-        for pin in pinsToDelete {
-            dataController.viewContext.delete(pin)
+            mapView.removeAnnotation(myAnnotation)
+            dataController.viewContext.delete(myAnnotation.pin)
             dataController.saveContext()
         }
+        mapView.deselectAnnotation(view.annotation, animated: true)
     }
 }

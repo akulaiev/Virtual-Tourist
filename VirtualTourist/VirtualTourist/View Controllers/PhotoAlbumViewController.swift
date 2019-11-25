@@ -54,7 +54,7 @@ class PhotoAlbumViewController: UIViewController {
             setupFetchedResultsController(currentPin: currentPin)
             let mapRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: currentPin.latitude, longitude: currentPin.longitude), span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1))
             mapView.setRegion(mapRegion, animated: true)
-            MyPointAnnotation.putPin(mapView: mapView, pin: currentPin)
+            MyPointAnnotation.createAnnotationForPin(mapView: mapView, pin: currentPin)
             noImagesLabel.isHidden = true
             if fetchedImagesController.sections?.count == 0 || fetchedImagesController.sections?[0].numberOfObjects == 0 {
                 noImagesLabel.isHidden = false
@@ -161,7 +161,7 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
 // MapKit view delegate methods
 extension PhotoAlbumViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
-        return MyPointAnnotation.viewForAnnotation(annotation: annotation)
+        return MyPointAnnotation.viewForAnnotation(annotation: annotation, mapView: mapView)
     }
 }
 

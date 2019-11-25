@@ -24,15 +24,15 @@ class MyPointAnnotation: NSObject, MKAnnotation
         super.init()
     }
     
-    class func putPin(mapView: MKMapView, pin: Pin) {
+    class func createAnnotationForPin(mapView: MKMapView, pin: Pin) {
         let annotation = MyPointAnnotation(pin: pin, color: .red)
         mapView.addAnnotation(annotation)
     }
     
-    class func viewForAnnotation(annotation: MKAnnotation) -> MKAnnotationView? {
+    class func viewForAnnotation(annotation: MKAnnotation, mapView: MKMapView) -> MKAnnotationView? {
         if let annotation = annotation as? MyPointAnnotation
         {
-            let view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "")
+            let view = MKPinAnnotationView(annotation: annotation, reuseIdentifier: "\(annotation.pin.latitude):\(annotation.pin.longitude)")
             view.animatesDrop = true
             view.pinTintColor = annotation.color
             view.canShowCallout = false
