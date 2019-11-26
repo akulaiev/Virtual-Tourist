@@ -25,6 +25,7 @@ class PhotoAlbumViewController: UIViewController {
     
     var shouldReloadCollectionView: Bool = false
     
+    // Sets the delegates and registeres the custom cell
     override func viewDidLoad() {
         super.viewDidLoad()
         mapView.delegate = self
@@ -33,6 +34,7 @@ class PhotoAlbumViewController: UIViewController {
         collectionView.register(UINib.init(nibName: "CustomCollectionViewCell", bundle: nil), forCellWithReuseIdentifier: "photoCell")
     }
     
+    // Sets up the fetched results controller for Photo data entries
     func setupFetchedResultsController(currentPin: Pin) {
         let fetchRequest: NSFetchRequest<Photo> = Photo.fetchRequest()
         let predicate = NSPredicate(format: "pin == %@", currentPin)
@@ -48,6 +50,7 @@ class PhotoAlbumViewController: UIViewController {
         }
     }
     
+    // Prepares the interface for showing
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
         if let currentPin = currentPin {
@@ -62,6 +65,7 @@ class PhotoAlbumViewController: UIViewController {
         }
     }
     
+    // Clears the fetched results controller
     override func viewDidDisappear(_ animated: Bool) {
         super.viewDidDisappear(animated)
         fetchedImagesController = nil
@@ -71,6 +75,7 @@ class PhotoAlbumViewController: UIViewController {
         fetchedResultsProcessingOperations.removeAll()
     }
     
+    // Updates cells based on the data downloading state
     fileprivate func updateCellUI(_ cell: CustomCollectionViewCell, isDownloading: Bool) {
         if isDownloading {
             cell.photoImageView.layer.borderWidth = 1.5
@@ -83,9 +88,35 @@ class PhotoAlbumViewController: UIViewController {
         }
     }
     
+    // Refreshes cells' images
+    func refreshCollection(completion: @escaping (Bool, Error?) -> Void) {
+        FlickrApiClient.getImageUrls(pin: currentPin) { (urls, titles, error) in
+            guard let urls = urls, let titles = titles else {
+                completion(false, error)
+                return
+            }
+            for index in 0..<self.fetchedImagesController.fetchedObjects!.count {
+                let entryToUpdate = self.fetchedImagesController.fetchedObjects![index]
+                entryToUpdate.photoImg = nil
+                entryToUpdate.title = titles[index]
+                entryToUpdate.url = urls[index].absoluteString
+            }
+            completion(true, nil)
+        }
+    }
+    
+    // According to the New Collection button state, refreshes cells or deletes the chosen photo
     @IBAction func collectionsButtonTapped(_ sender: UIBarButtonItem) {
         if sender.title == "New Collection" {
             collectionsButton.isEnabled = false
+            refreshCollection { (success, error) in
+                if success {
+                    self.collectionsButton.isEnabled = true
+                }
+                else {
+                    print(error!.localizedDescription)
+                }
+            }
         }
         else if sender.title == "Remove Selected Pictures" {
             collectionsButton.tintColor = .blue
@@ -131,6 +162,7 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
         }
     }
     
+    // Gets the image for cell
     func getImageFromNetwork(imageUrl: URL, cell: CustomCollectionViewCell, indexPath: IndexPath) {
         updateCellUI(cell, isDownloading: true)
         FlickrApiClient.downloadImage(url: imageUrl) { (data, error) in
@@ -146,6 +178,7 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
         }
     }
     
+    // Deques reusable cell
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: "photoCell", for: indexPath) as! CustomCollectionViewCell
         if let image = fetchedImagesController.object(at: indexPath).photoImg {
@@ -158,13 +191,14 @@ extension PhotoAlbumViewController: UICollectionViewDelegate, UICollectionViewDa
     }
 }
 
-// MapKit view delegate methods
+// MapKit view delegate method
 extension PhotoAlbumViewController: MKMapViewDelegate {
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         return MyPointAnnotation.viewForAnnotation(annotation: annotation, mapView: mapView)
     }
 }
 
+// FetchedResultsController delegate methods
 extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
  
     func controller(_ controller: NSFetchedResultsController<NSFetchRequestResult>, didChange anObject: Any, at indexPath: IndexPath?, for type: NSFetchedResultsChangeType, newIndexPath: IndexPath?) {
@@ -179,6 +213,8 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
             collectionView.reloadItems(at: [indexPath!])
         case .move:
             collectionView.moveItem(at: indexPath!, to: newIndexPath!)
+        @unknown default:
+            fatalError()
         }
     }
 
@@ -189,6 +225,8 @@ extension PhotoAlbumViewController: NSFetchedResultsControllerDelegate {
         case .delete: collectionView.deleteSections(indexSet)
         case .update, .move:
             fatalError("Invalid change type in controller(_:didChange:atSectionIndex:for:). Only .insert or .delete should be possible.")
+        @unknown default:
+            fatalError()
         }
     }
 

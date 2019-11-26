@@ -71,7 +71,7 @@
                         <outlet property="deletePinsLabel" destination="Bkj-Q5-y7F" id="m4R-Wo-7ag"/>
                         <outlet property="editButton" destination="cXh-Vk-QSu" id="pVd-95-Axn"/>
                         <outlet property="mapView" destination="MuE-vp-VDf" id="o2T-Gr-ZxA"/>
-                        <segue destination="xxb-W9-1YJ" kind="show" id="Ifn-Hm-lXm"/>
+                        <segue destination="xxb-W9-1YJ" kind="show" identifier="toPhotos" id="Ifn-Hm-lXm"/>
                     </connections>
                 </viewController>
                 <placeholder placeholderIdentifier="IBFirstResponder" id="dkx-z0-nzr" sceneMemberID="firstResponder"/>

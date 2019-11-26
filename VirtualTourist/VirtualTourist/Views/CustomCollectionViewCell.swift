@@ -12,10 +12,9 @@ class CustomCollectionViewCell: UICollectionViewCell {
 
     @IBOutlet weak var photoImageView: UIImageView!
     @IBOutlet weak var indicatorView: UIActivityIndicatorView!
-    
-    override func awakeFromNib() {
-        super.awakeFromNib()
-        photoImageView.image = UIImage(named: "placeholder")
-    }
 
+    override func prepareForReuse() {
+        super.prepareForReuse()
+        photoImageView.image = nil
+    }
 }

@@ -21,6 +21,7 @@ class TravelLocationsMapViewController: UIViewController {
     var imageForPinUrls: [URL] = []
     var titlesForPin: [String] = []
     
+    // Sets delegates, configures gesture recognizer, fetches already saved in CoreData pins to display
     override func viewDidLoad() {
         super.viewDidLoad()
         mapView.delegate = self
@@ -31,9 +32,9 @@ class TravelLocationsMapViewController: UIViewController {
         placeSavedPins()
     }
     
+    // Prepares for showing the VC: hides delete pin label and centers the map view to the last chosen location
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(true)
-        
         deletePinsLabel.isHidden = true
         let currentCenterArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil)
         if (currentCenterArr.count > 0) {
@@ -42,23 +43,7 @@ class TravelLocationsMapViewController: UIViewController {
         }
     }
     
-    fileprivate func createDataEntries(currentPin: Pin, photoAlbumVC: PhotoAlbumViewController) {
-        FlickrApiClient.getImageUrls(pin: currentPin) {(result, title, error) in
-            guard let urls = result, let titles = title else {
-                print(error!.localizedDescription)
-                return
-            }
-            self.imageForPinUrls = urls
-            self.titlesForPin = titles
-            for index in 0..<self.imageForPinUrls.count {
-                let coreImage = Photo(context: self.dataController.viewContext)
-                coreImage.setValuesForKeys(["url": self.imageForPinUrls[index].absoluteString, "title": self.titlesForPin[index], "pin": currentPin])
-                self.dataController.saveContext()
-            }
-            self.navigationController!.pushViewController(photoAlbumVC, animated: true)
-        }
-    }
-    
+    // Checks, if any pins have already been saved
     func checkImagesForPin(currentPin: Pin) -> Bool {
         let predicate = NSPredicate(format: "pin == %@", currentPin)
         let result = dataController.fetchRecordsForEntity("Photo", inManagedObjectContext: dataController.viewContext, predicate: predicate)
@@ -68,6 +53,7 @@ class TravelLocationsMapViewController: UIViewController {
         return true
     }
     
+    // Configures the state of the Bar Button
     fileprivate func changeEditButton(isEditing: Bool, button: UIBarButtonItem) {
         self.setEditing(!self.isEditing, animated: true)
         if isEditing {
@@ -79,6 +65,7 @@ class TravelLocationsMapViewController: UIViewController {
         deletePinsLabel.isHidden = !isEditing
     }
     
+    // Calls the function to configure the Bar Button when it is tapped
     @IBAction func editButtonTapped(_ sender: UIBarButtonItem) {
         if sender.title == "Edit" {
             changeEditButton(isEditing: true, button:  sender)
@@ -87,16 +74,31 @@ class TravelLocationsMapViewController: UIViewController {
             changeEditButton(isEditing: false, button: sender)
         }
     }
+    
+    // Calls the function, that crates Core Data entries for placed pin
+    fileprivate func dataForPin(currentPin: Pin, photoAlbumVC: PhotoAlbumViewController) {
+        FlickrApiClient.createDataEntries(currentPin: currentPin, dataController: dataController) { (success, error) in
+            if !success {
+                print(error!.localizedDescription)
+            }
+            else {
+                self.navigationController!.pushViewController(photoAlbumVC, animated: true)
+            }
+        }
+    }
 }
 
+// Manages Map View delegate functionality
 extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecognizerDelegate {
     
+    // Places on the map pre-saved pins
     func placeSavedPins() {
         for pin in pins {
             MyPointAnnotation.createAnnotationForPin(mapView: mapView, pin: pin)
         }
     }
     
+    // Drops the new pin at the long tap
     @objc func longTap(sender: UITapGestureRecognizer){
         if sender.state == .began {
             let locationInView = sender.location(in: mapView)
@@ -105,6 +107,7 @@ extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecogniz
         }
     }
     
+    // Creates new pin Core Data entry
     func addNewPin(location: CLLocationCoordinate2D) {
         let newPin = Pin(context: dataController.viewContext)
         newPin.latitude = location.latitude
@@ -113,10 +116,12 @@ extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecogniz
         dataController.saveContext()
     }
     
+    // Returns view fo annotation
     func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
         return MyPointAnnotation.viewForAnnotation(annotation: annotation, mapView: mapView)
     }
     
+    // Changes the map center Core data entry to the newly changed one
     func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
         var centerArr = dataController.fetchRecordsForEntity("Map", inManagedObjectContext: dataController.viewContext, predicate: nil) as! [Map]
         var currentCenter: Map!
@@ -130,6 +135,7 @@ extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecogniz
         dataController.saveContext()
     }
     
+    // According to the Edit button state, navigates to PhotoAlbumVC or deletes the chosen pins
     func mapView(_ mapView: MKMapView, didSelect view: MKAnnotationView) {
         let myAnnotation = view.annotation as! MyPointAnnotation
         if deletePinsLabel.isHidden {
@@ -137,7 +143,7 @@ extension TravelLocationsMapViewController: MKMapViewDelegate, UIGestureRecogniz
             photoAlbumVC.currentPin = myAnnotation.pin
             photoAlbumVC.dataController = dataController
             if !checkImagesForPin(currentPin: myAnnotation.pin) {
-                createDataEntries(currentPin: myAnnotation.pin, photoAlbumVC: photoAlbumVC)
+                dataForPin(currentPin: myAnnotation.pin, photoAlbumVC: photoAlbumVC)
             }
             else {
                 self.navigationController!.pushViewController(photoAlbumVC, animated: true)
